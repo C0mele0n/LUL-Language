@@ -1,0 +1,357 @@
+<!-- @format -->
+
+<!--
+    Prompts:
+    Make it so that, when "  " precedes the "-"of a list, that list item is treated as a sublist.
+     I would like all sublist items to be displayed directly underneath their parent's
+      corresponding waymarks, but far enough to the right so that the left edge of the list items' 
+      bounding box lines up with the right edge of the parent's waymark (in the generated svg). 
+      I would also like the subtext (displayed in the svg) to push down any lines underneath it 
+      (so that there is no touching or overlaping content)
+
+      concerning "LG2.html", can you edit the javascript code so that the following features are implemented in a way that works?
+1. Currently, a line is only generated based on a list with a single level, and if any indented list items are in the list, only 
+the list items before the inented ones will render in the svg (atop the waymarks for the generated timeline). I would like for the 
+generated timeline to show every list item (without indentations) within the generated svg, regardless of whether there are indented 
+list items or not. I would like the user to have to write "end" line under the last list item for it to be considered the end.
+2. I would like for all indented list items to be rendered directly under their parent list item's waymark (vertical line) within the svg.
+3. I would like there to be a minimum space added after the indented list items (within the svg), so that no content overlaps between different list generations.
+-->
+
+<!--
+  Test:
+@Line: Millerites
+- 1798
+- 1833
+- 1840
+end
+
+@Line: Millerites
+- 1798
+  - TOE
+  - 1AM
+  - Deadly Wound
+- 1833
+  - Stars Fall
+  - Miller Preaches
+- 1840
+- 1842
+- 1843
+end
+
+
+@Line: Millerites
+- 1798
+- 1833
+
+- 1840
+- 1842
+- 1843
+end
+
+-->
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      /* CSS code for styling the textarea and the button */
+      #textarea {
+        width: 80%;
+        height: 300px;
+        margin: 10px;
+        font-family: monospace;
+      }
+
+      #button {
+        width: 200px;
+        height: 60px;
+        margin: 10px;
+      }
+
+      /* CSS code for styling the svg timeline */
+      svg {
+        width: 80%;
+        height: auto;
+        margin: 10px;
+      }
+
+      .waymark {
+        stroke: black;
+        stroke-width: 2px;
+      }
+
+      .text {
+        font-family: sans-serif;
+        font-size: 18px;
+      }
+
+      .link {
+        fill: blue;
+        text-decoration: underline;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- HTML code for creating the textarea and the button -->
+    <div id="container">
+      <textarea
+        id="textarea"
+        placeholder="Write your markdown here..."
+      ></textarea>
+      <br />
+      <button id="button" style="font-size: large">Generate SVG</button>
+    </div>
+
+    <!-- JavaScript code for parsing the markdown and generating the svg timeline -->
+    <script>
+      // A function that takes a markdown string and returns an array of lists
+      // Each list is an array of objects with text and level properties
+      // For example, "- A\n - B\n - C\n" => [{text: "A", level: 1}, {text: "B", level: 1}, {text: "C", level: 1}
+      function parseMarkdown(markdown) {
+        // Split the markdown by line breaks
+        let lines = markdown.split("\n");
+        // Initialize an empty array to store the lists
+        let lists = [];
+        // Initialize an empty array to store the current list
+        let list = [];
+        // Initialize a flag to keep track of whether the current list should be included
+        let includeList = false;
+        // Loop through each line
+        for (let line of lines) {
+          if (line.startsWith("@Line:")) {
+            // If the line has the "@Line:" tag, set the includeList flag to true
+            includeList = true;
+          } else if (line.startsWith("- ")) {
+            // If the line is a list item, check if the current list should be included
+            if (includeList) {
+              // Get the text and the level of the list item
+              let text = line.slice(2).trim();
+              let level = 1;
+              // Check if the text has any sub list items
+              if (text.includes("\n")) {
+                // Split the text by line breaks and add them to the list with increased level
+                let subItems = text.split("\n");
+                text = subItems[0];
+                for (let i = 1; i < subItems.length; i++) {
+                  let subText = subItems[i].slice(2).trim();
+                  let subLevel = level + 1;
+                  list.push({ text: subText, level: subLevel });
+                }
+              }
+              // Add the list item to the current list
+              list.push({ text: text, level: level });
+            }
+          } else {
+            // If the line is not a list item or the "@Line:" tag, check if the current list should be included
+            if (includeList) {
+              // Add the current list to the lists array and reset it
+              lists.push(list);
+              list = [];
+              includeList = false;
+            }
+          }
+        }
+        // Check if there is any remaining list item after looping through all lines
+        if (includeList && list.length > 0) {
+          // Add the current list to the lists array
+          lists.push(list);
+        }
+        // Return the lists array
+        return lists;
+      }
+
+      // A function that takes a lists array and returns an svg element with timelines
+      function generateSVG(lists) {
+        // Define some constants for svg dimensions and spacing
+        const SVG_WIDTH = 800;
+        const SVG_HEIGHT = lists.length * 200;
+        const TIMELINE_Y = 50;
+        const TIMELINE_SPACING = 200;
+        const WAYMARK_X = 50;
+
+        // Calculate the maximum number of waymarks in all lists
+        const maxWaymarks = Math.max(
+          ...lists.map((list) => list.filter((item) => item.level === 1).length)
+        );
+
+        const WAYMARK_SPACING = (SVG_WIDTH - WAYMARK_X * 2) / (maxWaymarks - 1);
+        const WAYMARK_HEIGHT = 8;
+
+        const TEXT_X_OFFSET = -Math.min(WAYMARK_SPACING / 4, 10);
+        const TEXT_Y_OFFSET = -5;
+        const SUBTEXT_X_OFFSET = WAYMARK_X + WAYMARK_SPACING / 2;
+        const SUBTEXT_Y_OFFSET = TIMELINE_Y + WAYMARK_HEIGHT + 15;
+
+        // Create a new svg element with the given width and height
+        let svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        svg.setAttribute("width", SVG_WIDTH);
+        svg.setAttribute("height", SVG_HEIGHT);
+        // Loop through each list in the lists array
+        for (let i = 0; i < lists.length; i++) {
+          // Get the current list and its y position
+          let list = lists[i];
+          let y = TIMELINE_Y + i * TIMELINE_SPACING;
+          // Create a new path element for the timeline
+          let path = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "path"
+          );
+          // Set the path data to draw a horizontal line from the first to the last waymark
+          path.setAttribute(
+            "d",
+            `M ${WAYMARK_X} ${y} L ${SVG_WIDTH - WAYMARK_X} ${y}`
+          );
+          // Set the stroke and fill attributes of the path
+          path.setAttribute("stroke", "black");
+          path.setAttribute("fill", "none");
+          // Append the path to the svg element
+          svg.appendChild(path);
+          // Loop through each list item in the current list
+          for (let j = 0; j < list.length; j++) {
+            // Get the text and level of the current list item and its x position
+            let { text, level } = list[j];
+            let x = WAYMARK_X + j * WAYMARK_SPACING;
+            // Create a new line element for the waymark
+            let line = document.createElementNS(
+              "http://www.w3.org/2000/svg",
+              "line"
+            );
+            // Set the x1, y1, x2, y2 attributes of the line to draw a vertical line from the timeline to the waymark height
+            line.setAttribute("x1", x);
+            line.setAttribute("y1", y);
+            line.setAttribute("x2", x);
+            line.setAttribute("y2", y - WAYMARK_HEIGHT);
+            // Set the class attribute of the line to waymark
+            line.setAttribute("class", "waymark");
+            // Append the line to the svg element
+            svg.appendChild(line);
+            // Create a new text element for the text
+            let textElement = document.createElementNS(
+              "http://www.w3.org/2000/svg",
+              "text"
+            );
+            // Set the x and y attributes of the text to position it above the waymark
+            textElement.setAttribute("x", x + TEXT_X_OFFSET);
+            textElement.setAttribute("y", y - WAYMARK_HEIGHT + TEXT_Y_OFFSET);
+            // Set the class attribute of the text to text
+            textElement.setAttribute("class", "text");
+            // Check if the text is a link
+            if (
+              text.startsWith("[") &&
+              text.endsWith("]") &&
+              text.includes("(") &&
+              text.includes(")")
+            ) {
+              // Get the link text and url from the markdown syntax
+              let linkText = text.slice(1, text.indexOf("(")).trim();
+              let linkUrl = text.slice(text.indexOf("(") + 1, -1).trim();
+              // Set the text content of the text element to the link text
+              textElement.textContent = linkText;
+              // Set the class attribute of the text element to link
+              textElement.setAttribute("class", "link");
+              // Set the onclick attribute of the text element to open the link url in a new tab
+              textElement.setAttribute(
+                "onclick",
+                `window.open('${linkUrl}', '_blank')`
+              );
+            } else {
+              // Set the text content of the text element to the text
+              textElement.textContent = text;
+            }
+            // Append the text element to the svg element
+            svg.appendChild(textElement);
+            // Check if the level of the current list item is 1 (top-level)
+            if (level === 1) {
+              // Initialize an empty array to store the sub list items
+              let subList = [];
+              // Loop through the next list items until reaching another top-level item or the end of the list
+              for (let k = j + 1; k < list.length && list[k].level > 1; k++) {
+                // Add the sub list item to the sub list array
+                subList.push(list[k]);
+              }
+              // Check if there are any sub list items
+              if (subList.length > 0) {
+                // Calculate the width of the parent waymark
+                const parentWaymarkWidth = WAYMARK_SPACING / 2;
+
+                // Loop through each sub list item
+                for (let l = 0; l < subList.length; l++) {
+                  // Get the subtext and sublevel of the current sub list item and its y position
+                  let { text: subText, level: subLevel } = subList[l];
+                  let subY = y + WAYMARK_HEIGHT + l * 15 + SUBTEXT_Y_OFFSET;
+                  // Create a new text element for the subtext
+                  let subTextElement = document.createElementNS(
+                    "http://www.w3.org/2000/svg",
+                    "text"
+                  );
+                  // Set the x and y attributes of the subtext to position it below the waymark with some indentation based on the sublevel and the width of the parent waymark
+                  subTextElement.setAttribute(
+                    "x",
+                    x + parentWaymarkWidth + (subLevel - 2) * 10
+                  );
+                  subTextElement.setAttribute("y", subY);
+                  // Set the class attribute of the subtext to text
+                  subTextElement.setAttribute("class", "text");
+                  // Check if the subtext is a link
+                  if (
+                    subText.startsWith("[") &&
+                    subText.endsWith("]") &&
+                    subText.includes("(") &&
+                    subText.includes(")")
+                  ) {
+                    // Get the link text and url from the markdown syntax
+                    let linkText = subText
+                      .slice(1, subText.indexOf("("))
+                      .trim();
+                    let linkUrl = subText
+                      .slice(subText.indexOf("(") + 1, -1)
+                      .trim();
+                    // Set the text content of the subtext element to the link text
+                    subTextElement.textContent = linkText;
+                    // Set the class attribute of the subtext element to link
+                    subTextElement.setAttribute("class", "link");
+                    // Set the onclick attribute of the subtext element to open the link url in a new tab
+                    subTextElement.setAttribute(
+                      "onclick",
+                      `window.open('${linkUrl}', '_blank')`
+                    );
+                  } else {
+                    // Set the text content of the subtext element to the subtext
+                    subTextElement.textContent = subText;
+                  }
+                  // Append the subtext element to the svg element
+                  svg.appendChild(subTextElement);
+                }
+              }
+            }
+          }
+        }
+        // Return the svg element
+        return svg;
+      }
+
+      // Get the textarea and button elements by their ids
+      let textarea = document.getElementById("textarea");
+      let button = document.getElementById("button");
+
+      // Add an event listener to the button for click events
+      button.addEventListener("click", function () {
+        // Get the markdown value from the textarea
+        let markdown = textarea.value;
+        // Parse the markdown and generate the svg
+        let lists = parseMarkdown(markdown);
+        let svg = generateSVG(lists);
+        // Remove any existing svg element from the container div
+        let container = document.getElementById("container");
+        let oldSvg = container.querySelector("svg");
+        if (oldSvg) {
+          container.removeChild(oldSvg);
+        }
+        // Insert the new svg element before the textarea
+        container.insertBefore(svg, textarea);
+      });
+    </script>
+  </body>
+</html>
