@@ -1,135 +1,147 @@
+
 <!DOCTYPE html>
 <html>
 <head>
-  <style>
-    /* Add some style to the svg elements */
-    svg {
-      width: 100%;
-      height: 500px;
-      border: 1px solid black;
-    }
-
-    line {
-      stroke: black;
-      stroke-width: 2px;
-    }
-
-    text {
-      font-family: Arial, sans-serif;
-      font-size: 14px;
-    }
-
-    .indent {
-      margin-left: 20px;
-    }
-  </style>
+	<title>Markdown Editor</title>
+	<style>
+		/* Add CSS styles for the SVG timeline */
+		.timeline {
+			display: block;
+			margin: 20px 0;
+			position: relative;
+			height: 100px;
+			width: 100%;
+			border-bottom: 1px solid black;
+		}
+		.timeline .waymark {
+			position: absolute;
+			bottom: 0;
+			width: 8px;
+			height: 8px;
+			border-radius: 50%;
+			background-color: black;
+			margin-left: -4px;
+		}
+		.timeline .waymark-label {
+			position: absolute;
+			top: -20px;
+			text-align: center;
+			width: 100%;
+		}
+		.timeline .waymark-label a {
+			color: blue;
+			text-decoration: underline;
+		}
+	</style>
 </head>
 <body>
-  <h1>LUL Language</h1>
-  <p>Write a list of events and see them as a timeline.</p>
-  <textarea id="input" rows="10" cols="50">
-- Start
-- Event 1
-  - Subevent 1
-  - Subevent 2
-- Event 2
-- Event 3
-- End
-</textarea>
-  <button id="generate">Generate</button>
-  <svg id="output"></svg>
-  <script>
-    // Get the input textarea, output svg, and generate button elements
-    let input = document.getElementById("input");
-    let output = document.getElementById("output");
-    let generate = document.getElementById("generate");
+	<!-- Add a textarea for the user to input markdown -->
+	<textarea id="markdown-input"></textarea>
+	<!-- Add a button to generate the SVG timeline -->
+	<button id="generate-timeline-btn">Generate SVG</button>
+	<!-- Add a container for the generated SVG timeline -->
+	<div id="timeline-container"></div>
 
-    // Add a click event listener to the generate button
-    generate.addEventListener("click", function() {
-      // Clear the output svg
-      output.innerHTML = "";
+	<script>
+		// Add event listener to the "Generate SVG" button
+		document.getElementById("generate-timeline-btn").addEventListener("click", function() {
+			// Get the markdown input from the textarea
+			var markdownInput = document.getElementById("markdown-input").value;
+			// Parse the markdown input to generate the SVG timeline
+			var svgTimeline = parseMarkdownToSvgTimeline(markdownInput);
+			// Display the SVG timeline in the container
+			document.getElementById("timeline-container").innerHTML = svgTimeline;
+		});
 
-      // Get the input text and split it by line breaks
-      let text = input.value;
-      let lines = text.split("\n");
+		// Function to parse markdown input and generate SVG timeline
+		function parseMarkdownToSvgTimeline(markdownInput) {
+			// Split the markdown input into lines
+			var lines = markdownInput.split("\n");
+			// Initialize variables for parsing the markdown input
+			var currentList = null;
+			var currentTimeline = null;
+			var timelines = [];
+			// Loop through each line of the markdown input
+			for (var i = 0; i < lines.length; i++) {
+				var line = lines[i];
+				// Check if the line starts with "@Line:"
+				if (line.startsWith("@Line:")) {
+					// If it does, create a new list and timeline
+					currentList = [];
+					currentTimeline = {
+						name: line.substring(6),
+						items: currentList
+					};
+					timelines.push(currentTimeline);
+				} else if (line.trim() === "end") {
+					// If the line is "end", end the current list
+					currentList = null;
+					currentTimeline = null;
+				} else if (currentList !== null) {
+					// If the current list is not null, add the line as a list item
+					currentList.push(line);
+				}
+			}
+			// Generate the SVG timeline for each timeline
+			var svgTimelines = "";
+			for (var i = 0; i < timelines.length; i++) {
+				var timeline = timelines[i];
+				var svgTimeline = generateSvgTimeline(timeline.name, timeline.items, i);
+				svgTimelines += svgTimeline;
+			}
+			return svgTimelines;
+		}
 
-      // Initialize some variables for drawing the timeline
-      let x = 50; // The x coordinate of the start point
-      let y = 50; // The y coordinate of the start point
-      let gap = 50; // The gap between each point
-      let radius = 5; // The radius of each point
-
-      // Loop through each line of the input text
-      for (let i = 0; i < lines.length; i++) {
-        // Get the current line and trim any whitespace
-        let line = lines[i].trim();
-
-        // Check if the line is not empty and not indented
-        if (line && !line.startsWith("- ")) {
-          // Draw a circle for the point
-          let circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-          circle.setAttribute("cx", x);
-          circle.setAttribute("cy", y);
-          circle.setAttribute("r", radius);
-          output.appendChild(circle);
-
-          // Draw a text for the label
-          let text = document.createElementNS("http://www.w3.org/2000/svg", "text");
-          text.setAttribute("x", x + radius * 2);
-          text.setAttribute("y", y + radius);
-          text.textContent = line;
-          output.appendChild(text);
-
-          // Check if this is not the last line
-          if (i < lines.length - 1) {
-            // Draw a line for the next point
-            let nextLine = lines[i + 1].trim();
-            let nextY = y + gap;
-
-            // Check if the next line is indented
-            if (nextLine.startsWith("- ")) {
-              // Adjust the next y coordinate to account for the indentation
-              nextY += gap * countIndentations(lines, i + 1);
-            }
-
-            let line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-            line.setAttribute("x1", x);
-            line.setAttribute("y1", y + radius);
-            line.setAttribute("x2", x);
-            line.setAttribute("y2", nextY - radius);
-            output.appendChild(line);
-
-            // Update the y coordinate for the next point
-            y = nextY;
-          }
-        }
-
-        // Check if the line is indented
-        if (line.startsWith("- ")) {
-          // Draw a text for the sublabel under the point
-          let text = document.createElementNS("http://www.w3.org/2000/svg", "text");
-          text.setAttribute("x", x + radius * 4);
-          text.setAttribute("y", y + radius * 4);
-          text.textContent = line.substring(2);
-          text.classList.add("indent");
-          output.appendChild(text);
-
-          // Update the y coordinate for the next sublabel
-          y += gap / 2;
-        }
-      }
-    });
-
-    // A helper function that counts how many consecutive lines are indented from a given index
-    function countIndentations(lines, index) {
-      let count = 0;
-      while (index < lines.length && lines[index].trim().startsWith("- ")) {
-        count++;
-        index++;
-      }
-      return count;
-    }
-    
-</script>
+		// Function to generate SVG timeline from list items
+		function generateSvgTimeline(name, items, index) {
+			// Calculate the width of each waymark
+			var waymarkWidth = 100 / items.length;
+			// Initialize variables for generating the SVG timeline
+			var svgTimeline = '<svg class="timeline" viewBox="0 0 100 100">';
+			// Loop through each item in the list
+			for (var i = 0; i < items.length; i++) {
+				var item = items[i];
+				// Check if the item is a sublist item
+				var isSublistItem = item.startsWith("  ");
+				// Calculate the position of the waymark
+				var waymarkPosition = (i * waymarkWidth) + (waymarkWidth / 2);
+				// Calculate the position of the waymark label
+				var waymarkLabelPosition = waymarkPosition - (waymarkWidth / 2);
+				// Generate the SVG for the waymark
+				var svgWaymark = '<div class="waymark" style="left: ' + waymarkPosition + '%;"></div>';
+				// Generate the SVG for the waymark label
+				var svgWaymarkLabel = '<div class="waymark-label" style="left: ' + waymarkLabelPosition + '%;">';
+				// Check if the item is a link
+				if (item.match(/\[(.*?)\]\((.*?)\)/)) {
+					// If it is, generate the SVG for the link
+					var linkText = item.match(/\[(.*?)\]/)[1];
+					var linkUrl = item.match(/\((.*?)\)/)[1];
+					svgWaymarkLabel += '<a href="' + linkUrl + '">' + linkText + '</a>';
+				} else if (item.match(/\[\[(.*?)\]\]/)) {
+					// If it is a wikilink, generate the SVG for the wikilink
+					var linkText = item.match(/\[\[(.*?)\]\]/)[1];
+					var linkUrl = "#" + linkText.replace(/\s+/g, "-").toLowerCase();
+					svgWaymarkLabel += '<a href="' + linkUrl + '">' + linkText + '</a>';
+				} else {
+					// If it is not a link, generate the SVG for the item text
+					svgWaymarkLabel += item;
+				}
+				svgWaymarkLabel += '</div>';
+				// Add the SVG for the waymark and waymark label to the SVG timeline
+				if (isSublistItem) {
+					svgTimeline += svgWaymarkLabel;
+				} else {
+					svgTimeline += svgWaymark + svgWaymarkLabel;
+				}
+			}
+			// Add the SVG for the timeline name to the SVG timeline
+			svgTimeline += '<text x="0" y="15" font-size="12">' + name + '</text>';
+			// Add the SVG for the timeline index to the SVG timeline
+			svgTimeline += '<text x="0" y="30" font-size="12">Timeline ' + (index + 1) + '</text>';
+			// Close the SVG timeline
+			svgTimeline += '</svg>';
+			return svgTimeline;
+		}
+	</script>
 </body>
 </html>
