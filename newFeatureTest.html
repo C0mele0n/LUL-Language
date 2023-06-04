@@ -1,147 +1,123 @@
-
 <!DOCTYPE html>
 <html>
 <head>
-	<title>Markdown Editor</title>
-	<style>
-		/* Add CSS styles for the SVG timeline */
-		.timeline {
-			display: block;
-			margin: 20px 0;
-			position: relative;
-			height: 100px;
-			width: 100%;
-			border-bottom: 1px solid black;
-		}
-		.timeline .waymark {
-			position: absolute;
-			bottom: 0;
-			width: 8px;
-			height: 8px;
-			border-radius: 50%;
-			background-color: black;
-			margin-left: -4px;
-		}
-		.timeline .waymark-label {
-			position: absolute;
-			top: -20px;
-			text-align: center;
-			width: 100%;
-		}
-		.timeline .waymark-label a {
-			color: blue;
-			text-decoration: underline;
-		}
-	</style>
+  <title>Markdown to SVG Timeline Editor</title>
+  <style>
+    #editor {
+      width: 100%;
+      height: 200px;
+      margin-bottom: 10px;
+    }
+    #svg-timeline {
+      max-width: 100%;
+      height: auto;
+    }
+  </style>
 </head>
 <body>
-	<!-- Add a textarea for the user to input markdown -->
-	<textarea id="markdown-input"></textarea>
-	<!-- Add a button to generate the SVG timeline -->
-	<button id="generate-timeline-btn">Generate SVG</button>
-	<!-- Add a container for the generated SVG timeline -->
-	<div id="timeline-container"></div>
+  <textarea id="editor" placeholder="Write your markdown here"></textarea>
+  <button onclick="generateTimeline()">Generate SVG</button>
+  <div id="svg-container"></div>
 
-	<script>
-		// Add event listener to the "Generate SVG" button
-		document.getElementById("generate-timeline-btn").addEventListener("click", function() {
-			// Get the markdown input from the textarea
-			var markdownInput = document.getElementById("markdown-input").value;
-			// Parse the markdown input to generate the SVG timeline
-			var svgTimeline = parseMarkdownToSvgTimeline(markdownInput);
-			// Display the SVG timeline in the container
-			document.getElementById("timeline-container").innerHTML = svgTimeline;
-		});
+  <script>
+    function generateTimeline() {
+      const editor = document.getElementById("editor");
+      const lines = editor.value.split("\n");
+      const timelines = [];
+      let currentTimeline = [];
 
-		// Function to parse markdown input and generate SVG timeline
-		function parseMarkdownToSvgTimeline(markdownInput) {
-			// Split the markdown input into lines
-			var lines = markdownInput.split("\n");
-			// Initialize variables for parsing the markdown input
-			var currentList = null;
-			var currentTimeline = null;
-			var timelines = [];
-			// Loop through each line of the markdown input
-			for (var i = 0; i < lines.length; i++) {
-				var line = lines[i];
-				// Check if the line starts with "@Line:"
-				if (line.startsWith("@Line:")) {
-					// If it does, create a new list and timeline
-					currentList = [];
-					currentTimeline = {
-						name: line.substring(6),
-						items: currentList
-					};
-					timelines.push(currentTimeline);
-				} else if (line.trim() === "end") {
-					// If the line is "end", end the current list
-					currentList = null;
-					currentTimeline = null;
-				} else if (currentList !== null) {
-					// If the current list is not null, add the line as a list item
-					currentList.push(line);
-				}
-			}
-			// Generate the SVG timeline for each timeline
-			var svgTimelines = "";
-			for (var i = 0; i < timelines.length; i++) {
-				var timeline = timelines[i];
-				var svgTimeline = generateSvgTimeline(timeline.name, timeline.items, i);
-				svgTimelines += svgTimeline;
-			}
-			return svgTimelines;
-		}
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
 
-		// Function to generate SVG timeline from list items
-		function generateSvgTimeline(name, items, index) {
-			// Calculate the width of each waymark
-			var waymarkWidth = 100 / items.length;
-			// Initialize variables for generating the SVG timeline
-			var svgTimeline = '<svg class="timeline" viewBox="0 0 100 100">';
-			// Loop through each item in the list
-			for (var i = 0; i < items.length; i++) {
-				var item = items[i];
-				// Check if the item is a sublist item
-				var isSublistItem = item.startsWith("  ");
-				// Calculate the position of the waymark
-				var waymarkPosition = (i * waymarkWidth) + (waymarkWidth / 2);
-				// Calculate the position of the waymark label
-				var waymarkLabelPosition = waymarkPosition - (waymarkWidth / 2);
-				// Generate the SVG for the waymark
-				var svgWaymark = '<div class="waymark" style="left: ' + waymarkPosition + '%;"></div>';
-				// Generate the SVG for the waymark label
-				var svgWaymarkLabel = '<div class="waymark-label" style="left: ' + waymarkLabelPosition + '%;">';
-				// Check if the item is a link
-				if (item.match(/\[(.*?)\]\((.*?)\)/)) {
-					// If it is, generate the SVG for the link
-					var linkText = item.match(/\[(.*?)\]/)[1];
-					var linkUrl = item.match(/\((.*?)\)/)[1];
-					svgWaymarkLabel += '<a href="' + linkUrl + '">' + linkText + '</a>';
-				} else if (item.match(/\[\[(.*?)\]\]/)) {
-					// If it is a wikilink, generate the SVG for the wikilink
-					var linkText = item.match(/\[\[(.*?)\]\]/)[1];
-					var linkUrl = "#" + linkText.replace(/\s+/g, "-").toLowerCase();
-					svgWaymarkLabel += '<a href="' + linkUrl + '">' + linkText + '</a>';
-				} else {
-					// If it is not a link, generate the SVG for the item text
-					svgWaymarkLabel += item;
-				}
-				svgWaymarkLabel += '</div>';
-				// Add the SVG for the waymark and waymark label to the SVG timeline
-				if (isSublistItem) {
-					svgTimeline += svgWaymarkLabel;
-				} else {
-					svgTimeline += svgWaymark + svgWaymarkLabel;
-				}
-			}
-			// Add the SVG for the timeline name to the SVG timeline
-			svgTimeline += '<text x="0" y="15" font-size="12">' + name + '</text>';
-			// Add the SVG for the timeline index to the SVG timeline
-			svgTimeline += '<text x="0" y="30" font-size="12">Timeline ' + (index + 1) + '</text>';
-			// Close the SVG timeline
-			svgTimeline += '</svg>';
-			return svgTimeline;
-		}
-	</script>
+        if (line.startsWith("@Line:")) {
+          if (currentTimeline.length > 0) {
+            timelines.push(currentTimeline);
+          }
+          currentTimeline = [];
+        } else if (line === "end") {
+          timelines.push(currentTimeline);
+          currentTimeline = [];
+        } else if (line.startsWith(" ")) {
+          currentTimeline[currentTimeline.length - 1].subitems.push(line.trim());
+        } else {
+          const linkRegex = /\[(.*?)\]\((.*?)\)/g;
+          const wikilinkRegex = /\[\[(.*?)\]\]/g;
+          const text = line.replace(linkRegex, '<a href="$2">$1</a>').replace(wikilinkRegex, '<a href="$1">$1</a>');
+          currentTimeline.push({ text: text, subitems: [] });
+        }
+      }
+
+      if (currentTimeline.length > 0) {
+        timelines.push(currentTimeline);
+      }
+
+      const svgContainer = document.getElementById("svg-container");
+      svgContainer.innerHTML = "";
+
+      for (let i = 0; i < timelines.length; i++) {
+        const timeline = timelines[i];
+        const svg = generateSVGTimeline(timeline, i);
+        svgContainer.appendChild(svg);
+      }
+    }
+
+    function generateSVGTimeline(timeline, index) {
+      const svgNS = "http://www.w3.org/2000/svg";
+      const svg = document.createElementNS(svgNS, "svg");
+      svg.setAttribute("viewBox", "0 0 1000 200");
+      svg.setAttribute("id", "svg-timeline-" + index);
+
+      const waymarkCount = timeline.length;
+      const waymarkSpacing = 1000 / (waymarkCount - 1);
+
+      for (let i = 0; i < waymarkCount; i++) {
+        const waymark = timeline[i];
+        const x = i * waymarkSpacing;
+        const y = 50;
+        const text = waymark.text;
+        const subitems = waymark.subitems;
+
+        const textElement = document.createElementNS(svgNS, "text");
+        textElement.setAttribute("x", x);
+        textElement.setAttribute("y", y - 10);
+        textElement.setAttribute("text-anchor", "middle");
+        textElement.innerHTML = text;
+        svg.appendChild(textElement);
+
+        const lineElement = document.createElementNS(svgNS, "line");
+        lineElement.setAttribute("x1", x);
+        lineElement.setAttribute("y1", y);
+        lineElement.setAttribute("x2", x);
+        lineElement.setAttribute("y2", 150);
+        lineElement.setAttribute("stroke", "black");
+        lineElement.setAttribute("stroke-width", "2");
+        svg.appendChild(lineElement);
+
+        for (let j = 0; j < subitems.length; j++) {
+          const subitem = subitems[j];
+          const subitemText = subitem.replace(/^[ \t]+/gm, "");
+          const subitemY = y + (j + 1) * 20;
+
+          const subitemTextElement = document.createElementNS(svgNS, "text");
+          subitemTextElement.setAttribute("x", x);
+          subitemTextElement.setAttribute("y", subitemY);
+          subitemTextElement.setAttribute("text-anchor", "middle");
+          subitemTextElement.innerHTML = subitemText;
+          svg.appendChild(subitemTextElement);
+        }
+      }
+
+      const horizontalLineElement = document.createElementNS(svgNS, "line");
+      horizontalLineElement.setAttribute("x1", 0);
+      horizontalLineElement.setAttribute("y1", 100);
+      horizontalLineElement.setAttribute("x2", 1000);
+      horizontalLineElement.setAttribute("y2", 100);
+      horizontalLineElement.setAttribute("stroke", "black");
+      horizontalLineElement.setAttribute("stroke-width", "2");
+      svg.appendChild(horizontalLineElement);
+
+      return svg;
+    }
+  </script>
 </body>
 </html>
